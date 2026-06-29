@@ -23,8 +23,22 @@ const Layout = () => {
 
     // Load workspaces once auth has finished loading and user is available
     useEffect(() => {
-        if (isLoaded && user && workspaces.length === 0) {
-            dispatch(fetchWorkspaces({ getToken }))
+        if (!isLoaded || !user) return;
+
+        const loadWorkspaces = () => dispatch(fetchWorkspaces({ getToken }))
+
+        if (workspaces.length === 0) {
+            loadWorkspaces()
+            let retryCount = 0
+            const interval = setInterval(() => {
+                retryCount += 1
+                if (retryCount >= 5) {
+                    clearInterval(interval)
+                    return
+                }
+                loadWorkspaces()
+            }, 3000)
+            return () => clearInterval(interval)
         }
     }, [isLoaded, user, workspaces.length, dispatch, getToken])
 

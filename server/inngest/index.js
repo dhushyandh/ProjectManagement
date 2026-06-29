@@ -71,7 +71,7 @@ const syncWorkspaceCreation = inngest.createFunction(
             data: {
                 userId: data.created_by,
                 workspaceId: data.id,
-                role: 'OWNER',
+                role: 'ADMIN',
             }
         })
     }
