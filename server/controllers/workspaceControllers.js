@@ -5,21 +5,27 @@ import { prisma } from "../config/prisma.js";
 export const getUserWorkspaces = async (req, res) => {
     try {
         const { userId } = await req.auth();
-        const workspaces = await prisma.workspaceMember.findMany({
+        const workspaceMemberships = await prisma.workspaceMember.findMany({
             where: {
                 userId: userId,
             },
             include: {
-                members: { include: { user: true } },
-                projects: {
+                workspace: {
                     include: {
-                        tasks: { include: { assignee: true, comments: { include: { user: true } } } },
-                        members: { include: { user: true } }
+                        members: { include: { user: true } },
+                        projects: {
+                            include: {
+                                tasks: { include: { assignee: true, comments: { include: { user: true } } } },
+                                members: { include: { user: true } }
+                            }
+                        },
+                        owner: true,
                     }
-                },
-                owner: true,
+                }
             }
         });
+
+        const workspaces = workspaceMemberships.map((membership) => membership.workspace);
         res.json({ workspaces });
 
 
