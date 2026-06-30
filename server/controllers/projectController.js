@@ -7,6 +7,11 @@ export const createProject = async (req, res) => {
         const { userId } = await req.auth();
         const { workspaceId, description, name, status, start_date, end_date, team_members, team_lead, progress, priority } = req.body;
 
+        // Validate required fields
+        if (!workspaceId) {
+            return res.status(400).json({ message: "Workspace ID is required" });
+        }
+
         //check if user had admin role for workspace
         const workspace = await prisma.workspace.findUnique({
             where: { id: workspaceId },
@@ -78,6 +83,10 @@ export const updateProject = async (req, res) => {
     try {
         const { userId } = await req.auth();
         const { id, workspaceId, description, name, status, start_date, end_date, team_members, team_lead, progress, priority } = req.body;
+
+        if (!id || !workspaceId) {
+            return res.status(400).json({ message: "Project ID and Workspace ID are required" });
+        }
 
         //check if user had admin role for workspace
         const workspace = await prisma.workspace.findUnique({
