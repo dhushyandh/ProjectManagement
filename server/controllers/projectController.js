@@ -9,7 +9,13 @@ export const createProject = async (req, res) => {
 
         // Validate required fields
         if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required" });
+            return res.status(400).json({ message: "workspaceId is required!" });
+        }
+        if (!name) {
+            return res.status(400).json({ message: "name is required!" });
+        }
+        if (!team_lead) {
+            return res.status(400).json({ message: "team_lead is required!" });
         }
 
         //check if user had admin role for workspace
@@ -84,8 +90,17 @@ export const updateProject = async (req, res) => {
         const { userId } = await req.auth();
         const { id, workspaceId, description, name, status, start_date, end_date, team_members, team_lead, progress, priority } = req.body;
 
-        if (!id || !workspaceId) {
-            return res.status(400).json({ message: "Project ID and Workspace ID are required" });
+        if (!id) {
+            return res.status(400).json({ message: "id is required!" });
+        }
+        if (!workspaceId) {
+            return res.status(400).json({ message: "workspaceId is required!" });
+        }
+        if (!name) {
+            return res.status(400).json({ message: "name is required!" });
+        }
+        if (!team_lead) {
+            return res.status(400).json({ message: "team_lead is required!" });
         }
 
         //check if user had admin role for workspace
