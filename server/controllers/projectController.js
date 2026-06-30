@@ -41,7 +41,7 @@ export const createProject = async (req, res) => {
                 progress,
                 priority,
                 workspace: { connect: { id: workspaceId } },
-                team_lead: teamLead?.id,
+                owner: { connect: { id: teamLead?.id } },
             },
         });
 

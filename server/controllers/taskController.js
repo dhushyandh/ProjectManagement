@@ -1,5 +1,27 @@
 import { prisma } from '../config/prisma.js'
+import sendEmail from '../config/nodemailer.js'
 import {inngest} from '../inngest/index.js'
+
+const notifyAssignee = async (task, origin = '') => {
+    if (!task?.assignee?.email) return;
+
+    const taskUrl = origin
+        ? `${origin}/taskDetails?id=${task.id}`
+        : `${process.env.CLIENT_URL || 'http://localhost:5173'}/taskDetails?id=${task.id}`;
+
+    const subject = `New task assigned: ${task.title}`;
+    const text = `You have been assigned a new task "${task.title}" in project "${task.project?.name || 'Unknown project'}".`;
+    const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+            <h3>You have a new task assignment</h3>
+            <p>You have been assigned the task <strong>${task.title}</strong> in project <strong>${task.project?.name || 'Unknown project'}</strong>.</p>
+            <p><a href="${taskUrl}" style="color:#2563eb">Open task</a></p>
+        </div>
+    `;
+
+    await sendEmail(task.assignee.email, subject, text, html);
+};
+
 // Create task 
 
 export const createTask = async (req, res) => {
@@ -37,8 +59,12 @@ export const createTask = async (req, res) => {
 
         const taskWithAssignee = await prisma.task.findUnique({
             where: { id: task.id },
-            include: { assignee: true }
+            include: { assignee: true, project: true }
         });
+
+        if (taskWithAssignee?.assignee) {
+            await notifyAssignee(taskWithAssignee, origin);
+        }
 
         await inngest.send({
             name: "app/task.assigned",
@@ -65,8 +91,8 @@ export const updateTask = async (req, res) => {
             return res.status(404).json({ message: "Task not found" });
         }
         const { userId } = await req.auth();
-        // const { title, description, type, status, priority, projectId, priority, assigneeId, due_date } = req.body;
-        // const origin = req.get('origin');
+        const { assigneeId } = req.body;
+        const origin = req.get('origin');
 
         //check if user is project lead or admin of workspace
         const project = await prisma.project.findUnique({
@@ -83,6 +109,17 @@ export const updateTask = async (req, res) => {
             where: { id: req.params.id },
             data: req.body
         })
+
+        const taskWithAssignee = await prisma.task.findUnique({
+            where: { id: req.params.id },
+            include: { assignee: true, project: true }
+        });
+
+        const assigneeChanged = typeof assigneeId !== 'undefined' && assigneeId !== task.assigneeId;
+        if (assigneeChanged && taskWithAssignee?.assignee) {
+            await notifyAssignee(taskWithAssignee, origin);
+        }
+
         res.status(201).json({ message: "Task updated successfully", task: updatedTask });
     }
     catch (err) {

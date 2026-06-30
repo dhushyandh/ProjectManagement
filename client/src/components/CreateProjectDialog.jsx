@@ -36,7 +36,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                 return toast.error("Please select a project lead.");
             }
             setIsSubmitting(true)
-            const { data } = await api.post('/api/projects', { ...formData, workspace_id: currentWorkspace.id }, { headers: { Authorization: `Bearer ${await getToken()}` } });
+            const { data } = await api.post('/api/projects', { ...formData, workspaceId: currentWorkspace.id }, { headers: { Authorization: `Bearer ${await getToken()}` } });
             dispatch(addProject(data.project))
             setIsDialogOpen(false)
             toast.success("Project created successfully!");

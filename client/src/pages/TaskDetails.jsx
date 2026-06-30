@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CalendarIcon, MessageCircle, PenIcon } from "lucide-react";
 import { assets } from "../assets/assets";
+import { useAuth, useUser } from "@clerk/clerk-react";
+import api from "../configs/api";
 
 const TaskDetails = () => {
 
@@ -12,7 +14,8 @@ const TaskDetails = () => {
     const projectId = searchParams.get("projectId");
     const taskId = searchParams.get("taskId");
 
-    const user = { id : 'user_1'}
+    const user = useUser()
+    const { getToken } = useAuth()
     const [task, setTask] = useState(null);
     const [project, setProject] = useState(null);
     const [comments, setComments] = useState([]);
@@ -22,6 +25,14 @@ const TaskDetails = () => {
     const { currentWorkspace } = useSelector((state) => state.workspace);
 
     const fetchComments = async () => {
+        if (!taskId) return
+        try {
+            const token = await getToken()
+            const { data } = await api.get(`/api/comments/${taskId}`, { headers: { Authorization: `Bearer ${token}` } })
+            setComments(data.comments || [])
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error.message);
+        }
 
     };
 
@@ -47,12 +58,9 @@ const TaskDetails = () => {
 
             toast.loading("Adding comment...");
 
-            //  Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-
-            const dummyComment = { id: Date.now(), user: { id: 1, name: "User", image: assets.profile_img_a }, content: newComment, createdAt: new Date() };
-            
-            setComments((prev) => [...prev, dummyComment]);
+            const token = await getToken()
+            const { data } = await api.post(`/api/comments`,{ taskId: task.id, content: newComment },{ headers: { Authorization: `Bearer ${token}` } })
+            setComments((prev) => [...prev, data.comment]);
             setNewComment("");
             toast.dismissAll();
             toast.success("Comment added.");
@@ -88,18 +96,23 @@ const TaskDetails = () => {
                     <div className="flex-1 md:overflow-y-scroll no-scrollbar">
                         {comments.length > 0 ? (
                             <div className="flex flex-col gap-4 mb-6 mr-2">
-                                {comments.map((comment) => (
-                                    <div key={comment.id} className={`sm:max-w-4/5 dark:bg-gradient-to-br dark:from-zinc-800 dark:to-zinc-900 border border-gray-300 dark:border-zinc-700 p-3 rounded-md ${comment.user.id === user?.id ? "ml-auto" : "mr-auto"}`} >
-                                        <div className="flex items-center gap-2 mb-1 text-sm text-gray-500 dark:text-zinc-400">
-                                            <img src={comment.user.image} alt="avatar" className="size-5 rounded-full" />
-                                            <span className="font-medium text-gray-900 dark:text-white">{comment.user.name}</span>
-                                            <span className="text-xs text-gray-400 dark:text-zinc-600">
-                                                • {format(new Date(comment.createdAt), "dd MMM yyyy, HH:mm")}
-                                            </span>
+                                {comments.map((comment) => {
+                                    const commentUser = comment?.user || {};
+                                    const isOwnComment = commentUser?.id === user?.id;
+
+                                    return (
+                                        <div key={comment.id} className={`sm:max-w-4/5 dark:bg-gradient-to-br dark:from-zinc-800 dark:to-zinc-900 border border-gray-300 dark:border-zinc-700 p-3 rounded-md ${isOwnComment ? "ml-auto" : "mr-auto"}`} >
+                                            <div className="flex items-center gap-2 mb-1 text-sm text-gray-500 dark:text-zinc-400">
+                                                <img src={commentUser.image || ""} alt="avatar" className="size-5 rounded-full" />
+                                                <span className="font-medium text-gray-900 dark:text-white">{commentUser.name || "Unknown user"}</span>
+                                                <span className="text-xs text-gray-400 dark:text-zinc-600">
+                                                    • {format(new Date(comment.createdAt), "dd MMM yyyy, HH:mm")}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-gray-900 dark:text-zinc-200">{comment.content}</p>
                                         </div>
-                                        <p className="text-sm text-gray-900 dark:text-zinc-200">{comment.content}</p>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
                             <p className="text-gray-600 dark:text-zinc-500 mb-4 text-sm">No comments yet. Be the first!</p>
