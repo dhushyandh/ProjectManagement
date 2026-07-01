@@ -54,13 +54,28 @@ const ensureClerkUserInDatabase = async (userId) => {
 
     const clerkUser = await clerkClient.users.getUser(userId);
     const email = clerkUser.emailAddresses?.[0]?.emailAddress || `${userId}@clerk.local`;
+    const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || email;
+    const image = clerkUser.imageUrl || '';
+
+    const existingByEmail = await prisma.user.findUnique({ where: { email } });
+
+    if (existingByEmail) {
+        return prisma.user.update({
+            where: { email },
+            data: {
+                id: clerkUser.id,
+                name,
+                image,
+            },
+        });
+    }
 
     return prisma.user.create({
         data: {
             id: clerkUser.id,
             email,
-            name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || email,
-            image: clerkUser.imageUrl || '',
+            name,
+            image,
         },
     });
 };
