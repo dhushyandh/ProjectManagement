@@ -6,4 +6,10 @@ if (!connectionString) {
   throw new Error('DATABASE_URL must be set')
 }
 
-export const prisma = new PrismaClient()
+export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: connectionString,
+    },
+  },
+})

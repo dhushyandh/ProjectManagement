@@ -6,12 +6,14 @@ import Projects from "./pages/Projects";
 import Team from "./pages/Team";
 import ProjectDetails from "./pages/ProjectDetails";
 import TaskDetails from "./pages/TaskDetails";
+import AcceptWorkspaceInvite from "./pages/AcceptWorkspaceInvite";
 
 const App = () => {
     return (
         <>
             <Toaster />
             <Routes>
+                <Route path="accept-invite" element={<AcceptWorkspaceInvite />} />
                 <Route path="/" element={<Layout />}>
                     <Route index element={<Dashboard />} />
                     <Route path="team" element={<Team />} />

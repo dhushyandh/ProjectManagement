@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { Mail, UserPlus } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { useAuth, useOrganization } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import { fetchWorkspaces } from "../features/workspaceSlice";
 
 const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
-    const { organization } = useOrganization()
     const dispatch = useDispatch()
     const { getToken } = useAuth()
 
@@ -23,13 +22,15 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            await organization.inviteMember({ emailAddress: formData.email, role: formData.role })
+            if (!currentWorkspace?.id) {
+                throw new Error("Workspace is not available")
+            }
 
             const token = await getToken()
-            await api.post('/api/workspaces/add-member', {
-                email: formData.email,
-                role: formData.role,
+            await api.post('/api/workspaces/invite-email', {
+                email: formData.email.trim(),
                 workspaceId: currentWorkspace?.id,
+                role: formData.role,
             }, {
                 headers: {
                     Authorization: `Bearer ${token}`,
