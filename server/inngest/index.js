@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import SendEmail from '../config/nodemailer.js';
+import { createClerkClient } from '@clerk/backend';
 
 if (!process.env.INNGEST_SIGNING_KEY && process.env.INNGEST_SECRET_KEY) {
     process.env.INNGEST_SIGNING_KEY = process.env.INNGEST_SECRET_KEY;
@@ -8,6 +9,27 @@ import { Inngest, step } from 'inngest'
 import { prisma } from '../config/prisma.js';
 
 export const inngest = new Inngest({ id: 'Project Management' })
+const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+
+const ensureClerkUserInDatabase = async (userId) => {
+    const existingUser = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (existingUser) {
+        return existingUser;
+    }
+
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress || `${userId}@clerk.local`;
+
+    return prisma.user.create({
+        data: {
+            id: clerkUser.id,
+            email,
+            name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || email,
+            image: clerkUser.imageUrl || '',
+        },
+    });
+};
 
 const syncUserCreation = inngest.createFunction(
     { id: 'sync-user-from-clerk', triggers: { event: 'clerk/user.created' } },
@@ -58,23 +80,32 @@ const syncWorkspaceCreation = inngest.createFunction(
     { id: 'sync-workspace-from-clerk', triggers: { event: 'clerk/organization.created' } },
     async ({ event }) => {
         const { data } = event;
-        await prisma.workspace.create({
-            data: {
-                id: data.id,
-                name: data.name,
-                slug: data.slug,
-                ownerId: data.created_by,
-                image_url: data.image_url,
-            }
-        })
-        // Add creator as Admin Membeer
-        await prisma.workspaceMember.create({
-            data: {
-                userId: data.created_by,
-                workspaceId: data.id,
-                role: 'ADMIN',
-            }
-        })
+        const creatorId = data.created_by;
+
+        if (!creatorId) {
+            throw new Error('Missing created_by on clerk/organization.created event');
+        }
+
+        await ensureClerkUserInDatabase(creatorId);
+
+        await prisma.$transaction([
+            prisma.workspace.create({
+                data: {
+                    id: data.id,
+                    name: data.name,
+                    slug: data.slug,
+                    ownerId: creatorId,
+                    image_url: data.image_url,
+                }
+            }),
+            prisma.workspaceMember.create({
+                data: {
+                    userId: creatorId,
+                    workspaceId: data.id,
+                    role: 'ADMIN',
+                }
+            })
+        ])
     }
 )
 
