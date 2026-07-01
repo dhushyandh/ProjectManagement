@@ -25,7 +25,24 @@ const Layout = () => {
     useEffect(() => {
         if (!isLoaded || !user) return;
 
-        dispatch(fetchWorkspaces({ getToken }))
+        const loadWorkspaces = () => dispatch(fetchWorkspaces({ getToken }))
+
+        loadWorkspaces()
+
+        const handleWindowFocus = () => loadWorkspaces()
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                loadWorkspaces()
+            }
+        }
+
+        window.addEventListener('focus', handleWindowFocus)
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+
+        return () => {
+            window.removeEventListener('focus', handleWindowFocus)
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+        }
     }, [isLoaded, user, dispatch, getToken])
 
     if (!user) {
