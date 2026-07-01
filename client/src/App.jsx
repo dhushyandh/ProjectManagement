@@ -7,6 +7,7 @@ import Team from "./pages/Team";
 import ProjectDetails from "./pages/ProjectDetails";
 import TaskDetails from "./pages/TaskDetails";
 import AcceptWorkspaceInvite from "./pages/AcceptWorkspaceInvite";
+import { Analytics } from "@vercel/analytics/next"
 
 const App = () => {
     return (
@@ -22,6 +23,7 @@ const App = () => {
                     <Route path="taskDetails" element={<TaskDetails />} />
                 </Route>
             </Routes>
+            <Analytics />
         </>
     );
 };
