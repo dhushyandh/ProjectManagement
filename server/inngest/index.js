@@ -32,19 +32,32 @@ const ensureClerkUserInDatabase = async (userId) => {
 };
 
 const syncUserCreation = inngest.createFunction(
-    { id: 'sync-user-from-clerk', triggers: { event: 'clerk/user.created' } },
+    { id: "sync-user-from-clerk", triggers: { event: "clerk/user.created" } },
     async ({ event }) => {
         const { data } = event;
-        await prisma.user.create({
-            data: {
+
+        console.log("USER CREATED EVENT:", data.id);
+
+        await prisma.user.upsert({
+            where: {
                 id: data.id,
-                email: data.email_addresses[0]?.email_address,
-                name: data?.first_name + " " + data?.last_name,
-                image: data?.image_url,
-            }
-        })
+            },
+            update: {
+                email: data.email_addresses?.[0]?.email_address ?? "",
+                name: `${data.first_name || ""} ${data.last_name || ""}`.trim(),
+                image: data.image_url || "",
+            },
+            create: {
+                id: data.id,
+                email: data.email_addresses?.[0]?.email_address ?? "",
+                name: `${data.first_name || ""} ${data.last_name || ""}`.trim(),
+                image: data.image_url || "",
+            },
+        });
+
+        console.log("USER SYNCED:", data.id);
     }
-)
+);
 
 const syncUserDeletion = inngest.createFunction(
     { id: 'delete-user-from-clerk', triggers: { event: 'clerk/user.deleted' } },
@@ -77,100 +90,100 @@ const syncUserUpdation = inngest.createFunction(
 
 // Inngest function to save workspace data to the database
 const syncWorkspaceCreation = inngest.createFunction(
-  {
-    id: "sync-workspace-from-clerk",
-    triggers: { event: "clerk/organization.created" },
-  },
-  async ({ event }) => {
-    const { data } = event;
+    {
+        id: "sync-workspace-from-clerk",
+        triggers: { event: "clerk/organization.created" },
+    },
+    async ({ event }) => {
+        const { data } = event;
 
-    const creatorId = data.created_by;
+        const creatorId = data.created_by;
 
-    console.log("========== ORGANIZATION CREATED ==========");
-    console.log("Organization ID:", data.id);
-    console.log("Organization Name:", data.name);
-    console.log("Creator ID:", creatorId);
+        console.log("========== ORGANIZATION CREATED ==========");
+        console.log("Organization ID:", data.id);
+        console.log("Organization Name:", data.name);
+        console.log("Creator ID:", creatorId);
 
-    if (!creatorId) {
-      throw new Error("Missing created_by on clerk/organization.created event");
+        if (!creatorId) {
+            throw new Error("Missing created_by on clerk/organization.created event");
+        }
+
+        // Check if user already exists
+        let user = await prisma.user.findUnique({
+            where: { id: creatorId },
+        });
+
+        console.log("User before ensure:", user);
+
+        // Create user if missing
+        if (!user) {
+            console.log("User not found. Fetching from Clerk...");
+
+            try {
+                user = await ensureClerkUserInDatabase(creatorId);
+
+                console.log("User created successfully:");
+                console.log(user);
+            } catch (err) {
+                console.error("ensureClerkUserInDatabase FAILED");
+                console.error(err);
+                throw err;
+            }
+        }
+
+        // Double check user exists
+        const verifyUser = await prisma.user.findUnique({
+            where: { id: creatorId },
+        });
+
+        console.log("User after ensure:", verifyUser);
+
+        if (!verifyUser) {
+            throw new Error(
+                `User ${creatorId} still does not exist in database after ensureClerkUserInDatabase()`
+            );
+        }
+
+        try {
+            console.log("Creating workspace...");
+
+            await prisma.workspace.create({
+                data: {
+                    id: data.id,
+                    name: data.name,
+                    slug: data.slug,
+                    ownerId: creatorId,
+                    image_url: data.image_url,
+                },
+            });
+
+            console.log("Workspace created successfully.");
+        } catch (err) {
+            console.error("Workspace creation failed:");
+            console.error(err);
+            throw err;
+        }
+
+        try {
+            console.log("Creating workspace member...");
+
+            await prisma.workspaceMember.create({
+                data: {
+                    userId: creatorId,
+                    workspaceId: data.id,
+                    role: "ADMIN",
+                },
+            });
+
+            console.log("Workspace member created.");
+        } catch (err) {
+            console.error("Workspace member creation failed:");
+            console.error(err);
+            throw err;
+        }
+
+        console.log("========== DONE ==========");
     }
-
-    // Check if user already exists
-    let user = await prisma.user.findUnique({
-      where: { id: creatorId },
-    });
-
-    console.log("User before ensure:", user);
-
-    // Create user if missing
-    if (!user) {
-      console.log("User not found. Fetching from Clerk...");
-
-      try {
-        user = await ensureClerkUserInDatabase(creatorId);
-
-        console.log("User created successfully:");
-        console.log(user);
-      } catch (err) {
-        console.error("ensureClerkUserInDatabase FAILED");
-        console.error(err);
-        throw err;
-      }
-    }
-
-    // Double check user exists
-    const verifyUser = await prisma.user.findUnique({
-      where: { id: creatorId },
-    });
-
-    console.log("User after ensure:", verifyUser);
-
-    if (!verifyUser) {
-      throw new Error(
-        `User ${creatorId} still does not exist in database after ensureClerkUserInDatabase()`
-      );
-    }
-
-    try {
-      console.log("Creating workspace...");
-
-      await prisma.workspace.create({
-        data: {
-          id: data.id,
-          name: data.name,
-          slug: data.slug,
-          ownerId: creatorId,
-          image_url: data.image_url,
-        },
-      });
-
-      console.log("Workspace created successfully.");
-    } catch (err) {
-      console.error("Workspace creation failed:");
-      console.error(err);
-      throw err;
-    }
-
-    try {
-      console.log("Creating workspace member...");
-
-      await prisma.workspaceMember.create({
-        data: {
-          userId: creatorId,
-          workspaceId: data.id,
-          role: "ADMIN",
-        },
-      });
-
-      console.log("Workspace member created.");
-    } catch (err) {
-      console.error("Workspace member creation failed:");
-      console.error(err);
-      throw err;
-    }
-
-    console.log("========== DONE ==========");
-  }
 );
 
 // Ingest function to update workspace data in the database
