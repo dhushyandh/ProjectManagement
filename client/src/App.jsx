@@ -8,7 +8,6 @@ import ProjectDetails from "./pages/ProjectDetails";
 import TaskDetails from "./pages/TaskDetails";
 import AcceptWorkspaceInvite from "./pages/AcceptWorkspaceInvite";
 import { Analytics } from "@vercel/analytics/react"
-import { SpeedInsights } from "@vercel/speed-insights/react"
 
 const App = () => {
     return (
@@ -25,7 +24,6 @@ const App = () => {
                 </Route>
             </Routes>
             <Analytics />
-            <SpeedInsights/>
         </>
     );
 };
