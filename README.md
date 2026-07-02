@@ -10,11 +10,11 @@ Built with **React, Express.js, PostgreSQL, Prisma, Clerk Authentication, and In
 
 ### 🔗 Frontend
 
-https://projectworkspacemanagement.vercel.app/
+https://projectmanage.dhushyandh.me
 
 ### 🔗 Backend API
 
-https://projectmanagementserver.vercel.app/
+https://projectmanagementserver.vercel.app
 
 ---
 
